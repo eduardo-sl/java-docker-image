@@ -1,0 +1,39 @@
+# Build stage with GraalVM
+FROM ghcr.io/graalvm/native-image-community:21-muslib-ol9 AS builder
+
+WORKDIR /build
+
+# Install Maven and UPX for extreme compression
+RUN microdnf install -y maven wget xz && \
+    wget -q https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-amd64_linux.tar.xz && \
+    tar -xf upx-4.2.1-amd64_linux.tar.xz && \
+    mv upx-4.2.1-amd64_linux/upx /usr/local/bin/ && \
+    rm -rf upx-*
+
+# Copy dependency files first for better caching
+COPY pom.xml .
+COPY src ./src
+
+# Build static native image
+RUN mvn -Pnative clean package -DskipTests \
+    -Dquarkus.native.additional-build-args=--static,--libc=musl,-H:+ReportExceptionStackTraces \
+    -Dquarkus.native.compression.level=10
+
+# Compress the binary with UPX (can reduce size by 50-70%)
+RUN upx --best --lzma /build/target/*-runner
+
+# Runtime stage - Scratch
+FROM scratch
+
+WORKDIR /app
+
+# Copy the compressed static binary
+COPY --from=builder /build/target/*-runner /app/application
+
+# Copy CA certificates
+COPY --from=builder /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /etc/ssl/certs/ca-certificates.crt
+
+EXPOSE 8080
+
+# Run the compressed native application
+ENTRYPOINT ["/app/application"]

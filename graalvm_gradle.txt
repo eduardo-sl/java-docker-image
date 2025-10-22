@@ -1,0 +1,43 @@
+# Build stage with GraalVM and Gradle
+FROM ghcr.io/graalvm/native-image-community:21-muslib-ol9 AS builder
+
+WORKDIR /build
+
+# Install necessary tools
+RUN microdnf install -y wget unzip
+
+# Install Gradle
+ENV GRADLE_VERSION=8.5
+RUN wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
+    unzip -q gradle-${GRADLE_VERSION}-bin.zip && \
+    rm gradle-${GRADLE_VERSION}-bin.zip && \
+    mv gradle-${GRADLE_VERSION} /opt/gradle
+
+ENV PATH="/opt/gradle/bin:${PATH}"
+
+# Copy Gradle wrapper and configuration
+COPY gradle gradle
+COPY gradlew .
+COPY build.gradle settings.gradle ./
+
+# Download dependencies (cached layer)
+RUN gradle dependencies --no-daemon || true
+
+# Copy source code
+COPY src ./src
+
+# Build native image
+RUN gradle nativeCompile --no-daemon
+
+# Runtime stage - Distroless static
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+
+# Copy the native binary (adjust path based on your Gradle setup)
+COPY --from=builder /build/build/native/nativeCompile/application /app/application
+
+EXPOSE 8080
+
+# Run the native application
+ENTRYPOINT ["/app/application"]

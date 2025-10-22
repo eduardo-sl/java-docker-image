@@ -1,0 +1,69 @@
+# Build stage
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /build
+
+# Copy dependency files first for better caching
+COPY pom.xml .
+COPY src ./src
+
+# Build the application
+RUN mvn clean package -DskipTests && \
+    mv target/*.jar app.jar
+
+# JLink stage - Create custom JRE
+FROM eclipse-temurin:21-jdk-alpine AS jlink-builder
+
+WORKDIR /jlink
+
+# Copy the JAR to analyze dependencies
+COPY --from=builder /build/app.jar app.jar
+
+# Analyze module dependencies and create custom JRE
+RUN jdeps --ignore-missing-deps \
+    --print-module-deps \
+    --multi-release 21 \
+    app.jar > /tmp/modules.txt && \
+    jlink \
+    --add-modules $(cat /tmp/modules.txt),jdk.crypto.ec \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress=2 \
+    --output /jre-custom
+
+# Runtime stage - Minimal Alpine with custom JRE
+FROM alpine:3.19
+
+# Install only essential runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata && \
+    addgroup -g 1001 appgroup && \
+    adduser -D -u 1001 -G appgroup appuser
+
+WORKDIR /app
+
+# Copy custom JRE and application
+COPY --from=jlink-builder /jre-custom /opt/jre
+COPY --from=builder /build/app.jar /app/app.jar
+
+# Set JAVA_HOME
+ENV JAVA_HOME=/opt/jre
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+# Change ownership
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 8080
+
+# Run with optimized settings
+ENTRYPOINT ["/opt/jre/bin/java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:+UseG1GC", \
+    "-XX:+UseStringDeduplication", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "/app/app.jar"]

@@ -1,0 +1,30 @@
+# Build stage with GraalVM
+FROM ghcr.io/graalvm/native-image-community:21-muslib-ol9 AS builder
+
+WORKDIR /build
+
+# Install Maven
+RUN microdnf install -y maven
+
+# Copy dependency files first for better caching
+COPY pom.xml .
+COPY src ./src
+
+# Build native image with optimal settings
+RUN mvn -Pnative clean package -DskipTests \
+    -Dquarkus.native.compression.level=10 \
+    -Dquarkus.native.compression.additional-args=--best
+
+# Runtime stage - Distroless static (no libc needed with musl)
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+
+# Copy the native binary
+COPY --from=builder /build/target/*-runner /app/application
+
+# Distroless runs as non-root by default
+EXPOSE 8080
+
+# Run the native application
+ENTRYPOINT ["/app/application"]
