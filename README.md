@@ -10,18 +10,18 @@ A single [Spring Boot sample application](sample-app/) is used across all Docker
 
 | Dockerfile | Base Image | Approx. Size | Use Case |
 |------------|-----------|--------------|----------|
-| `distroless.Dockerfile` | Distroless Java 21 | ~200MB | Production (maximum security) |
-| `alpine.Dockerfile` | Eclipse Temurin 21 JRE Alpine | ~180MB | Production (balanced, debug-friendly) |
+| `distroless.Dockerfile` | Distroless Java 25 | ~200MB | Production (maximum security) |
+| `alpine.Dockerfile` | Eclipse Temurin 25 JRE Alpine | ~180MB | Production (balanced, debug-friendly) |
 | `jlink.Dockerfile` | Alpine + Custom JRE | ~100-150MB | Production (smallest JVM image) |
 
 ### GraalVM Native Image
 
 | Dockerfile | Base Image | Approx. Size | Use Case |
 |------------|-----------|--------------|----------|
-| `graalvm-distroless.Dockerfile` | Distroless static | ~25-40MB | Production (recommended native) |
-| `graalvm-scratch.Dockerfile` | scratch | ~30-50MB | Minimal (no OS) |
+| `graalvm-distroless.Dockerfile` | Distroless cc Debian 13 | ~25-40MB | Production (recommended native) |
+| `graalvm-scratch.Dockerfile` | scratch + copied glibc runtime | ~30-50MB | Minimal runtime, no package manager |
 | `graalvm-alpine.Dockerfile` | Alpine | ~40-60MB | Debug-friendly native |
-| `graalvm-upx.Dockerfile` | scratch + UPX | ~15-25MB | Smallest possible image |
+| `graalvm-upx.Dockerfile` | Distroless cc Debian 13 + UPX | ~15-25MB | Smallest practical native image |
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ A single [Spring Boot sample application](sample-app/) is used across all Docker
 
 ### Distroless (Recommended for Production)
 
-Uses `gcr.io/distroless/java21-debian12` - a minimal image with no shell, package manager, or unnecessary libraries. Ideal for production environments with strict security requirements.
+Uses `gcr.io/distroless/java25-debian13` - a minimal image with no shell, package manager, or unnecessary libraries. Ideal for production environments with strict security requirements.
 
 ```bash
 docker build -t myapp-distroless -f distroless.Dockerfile .
@@ -41,7 +41,7 @@ docker run -p 8080:8080 myapp-distroless
 
 ### Alpine JRE (Balanced)
 
-Uses `eclipse-temurin:21-jre-alpine` - small image with shell access for debugging, health checks, and timezone support.
+Uses `eclipse-temurin:25-jre-alpine` - small image with shell access for debugging, health checks, and timezone support.
 
 ```bash
 docker build -t myapp-alpine -f alpine.Dockerfile .
@@ -50,7 +50,7 @@ docker run -p 8080:8080 myapp-alpine
 
 ### JLink Custom JRE (Smallest JVM)
 
-Creates a custom JRE with only the modules your application needs using `jlink`. Three-stage build: compile, create custom JRE, assemble final image.
+Creates a custom JRE with `jlink`. For this Spring Boot executable jar, the runtime starts from `java.se` and adds only the extra JDK modules needed by the app, which is more reliable than trusting `jdeps` output alone. Three-stage build: compile, create custom JRE, assemble final image.
 
 ```bash
 docker build -t myapp-jlink -f jlink.Dockerfile .
@@ -59,21 +59,23 @@ docker run -p 8080:8080 myapp-jlink
 
 ### GraalVM Distroless (Recommended Native)
 
-Compiles the application to a native binary using GraalVM and runs it on a Distroless static image. Near-instant startup and minimal memory footprint.
+Compiles the application to a native binary using GraalVM and runs it on `gcr.io/distroless/cc-debian13:nonroot`. Near-instant startup and minimal memory footprint.
 
 ```bash
 docker build -t myapp-graalvm-distroless -f graalvm-distroless.Dockerfile .
 docker run -p 8080:8080 myapp-graalvm-distroless
 ```
 
-### GraalVM Scratch (Ultra Minimal)
+### GraalVM Scratch (Minimal Runtime)
 
-Static native binary on an empty base image. The smallest possible image containing only your binary, CA certificates, and timezone data.
+Native binary on `scratch` with the minimum glibc runtime files copied from the builder. This keeps the image extremely small while avoiding the `musl` toolchain issues seen with current GraalVM community `muslib` images in this environment.
 
 ```bash
 docker build -t myapp-graalvm-scratch -f graalvm-scratch.Dockerfile .
 docker run -p 8080:8080 myapp-graalvm-scratch
 ```
+
+If you need the most operationally stable native image, prefer `graalvm-distroless.Dockerfile`. If you specifically need a fully static `musl` binary, be aware that the tested `25-muslib-ol8`, `25-muslib-ol9`, and `25-muslib-ol10` builders failed during `native-image` in this environment, so the scratch variant here is intentionally glibc-based.
 
 ### GraalVM Alpine (Debug-Friendly Native)
 
@@ -86,7 +88,7 @@ docker run -p 8080:8080 myapp-graalvm-alpine
 
 ### GraalVM UPX (Smallest Possible)
 
-Static native binary compressed with UPX for extreme size reduction (50-70% smaller). Best for edge computing and serverless.
+Native binary compressed with UPX for extreme size reduction (often 50-70% smaller) and run on Distroless `cc`. Best when image size matters more than build simplicity.
 
 ```bash
 docker build -t myapp-graalvm-upx -f graalvm-upx.Dockerfile .
@@ -152,7 +154,7 @@ See [docs/JVM_TUNING.md](docs/JVM_TUNING.md) for a complete guide on memory conf
 
 - **Non-root execution**: All images run as non-root users
 - **Minimal attack surface**: No shell or package manager in Distroless/Scratch images
-- **Pinned base images**: Specific JDK/JRE versions for reproducible builds
+- **Versioned base images**: Java 25 and Debian 13 image families keep the examples aligned on a current runtime baseline
 - **CA certificates**: Included for HTTPS support
 - **Layer caching**: Dependencies are cached separately from source code
 
@@ -183,4 +185,4 @@ See [docs/SECURITY.md](docs/SECURITY.md) for detailed security best practices.
 - [GraalVM](https://www.graalvm.org/)
 - [Spring Boot Docker Guide](https://spring.io/guides/topicals/spring-boot-docker)
 - [Docker Multi-stage Builds](https://docs.docker.com/build/building/multi-stage/)
-- [JLink Documentation](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jlink.html)
+- [JLink Documentation](https://docs.oracle.com/en/java/javase/25/docs/specs/man/jlink.html)

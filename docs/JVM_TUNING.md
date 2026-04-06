@@ -43,7 +43,7 @@ Best for: General-purpose, heap sizes > 512MB, latency-sensitive applications.
 -XX:+ZGenerational
 ```
 
-Best for: Large heaps (multi-GB), sub-millisecond pause requirements. Available since JDK 21 as production-ready.
+Best for: Large heaps (multi-GB), sub-millisecond pause requirements. Available since JDK 21 as production-ready. Recommended for Java 25+.
 
 ### Serial GC - Small containers
 
@@ -67,7 +67,7 @@ Terminates the JVM immediately on OOM instead of leaving it in an unstable state
 
 CDS pre-processes class metadata into a shared archive (`.jsa` file) that is memory-mapped at startup, reducing class loading time by 20-40%.
 
-**AppCDS with Spring Boot (Java 17-23):**
+**AppCDS with Spring Boot (Java 17-23, legacy):**
 
 ```dockerfile
 # Training run: generates CDS archive during image build
@@ -79,7 +79,7 @@ RUN java -XX:ArchiveClassesAtExit=application.jsa \
 ENTRYPOINT ["java", "-XX:SharedArchiveFile=application.jsa", "-jar", "application.jar"]
 ```
 
-**AOT Cache (Java 24+) -- replaces AppCDS:**
+**AOT Cache (Java 24+, recommended for Java 25) -- replaces AppCDS:**
 
 ```dockerfile
 RUN java -XX:AOTCacheOutput=app.aot \
@@ -157,5 +157,5 @@ resources:
 ## References
 
 - [Eclipse Temurin Container Support](https://adoptium.net/)
-- [JDK 21 GC Tuning Guide](https://docs.oracle.com/en/java/javase/21/gctuning/)
+- [JDK 25 GC Tuning Guide](https://docs.oracle.com/en/java/javase/25/gctuning/)
 - [Spring Boot Docker Guide](https://spring.io/guides/topicals/spring-boot-docker)

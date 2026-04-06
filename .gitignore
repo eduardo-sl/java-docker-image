@@ -47,3 +47,8 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Local tooling artifacts
+.ai-jail
+.codex
+.tmp-inspect/
