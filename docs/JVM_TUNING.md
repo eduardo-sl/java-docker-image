@@ -53,19 +53,51 @@ Best for: Large heaps (multi-GB), sub-millisecond pause requirements. Available 
 
 Best for: Containers with < 256MB RAM or single-core allocation.
 
+## Error Handling
+
+```
+-XX:+ExitOnOutOfMemoryError
+```
+
+Terminates the JVM immediately on OOM instead of leaving it in an unstable state. Essential in container orchestration (Kubernetes, ECS) so the scheduler can restart the pod promptly.
+
 ## Startup Optimization
 
 ### Class Data Sharing (CDS / AppCDS)
 
-CDS shares class metadata across JVM instances and speeds up startup by 10-30%:
+CDS pre-processes class metadata into a shared archive (`.jsa` file) that is memory-mapped at startup, reducing class loading time by 20-40%.
+
+**AppCDS with Spring Boot (Java 17-23):**
 
 ```dockerfile
-# Generate CDS archive during build
-RUN java -Xshare:dump -XX:SharedArchiveFile=/app/classes.jsa -jar /app/app.jar --dry-run || true
+# Training run: generates CDS archive during image build
+RUN java -XX:ArchiveClassesAtExit=application.jsa \
+    -Dspring.context.exit=onRefresh \
+    -jar application.jar
 
-# Use CDS at runtime
-ENTRYPOINT ["java", "-Xshare:on", "-XX:SharedArchiveFile=/app/classes.jsa", "-jar", "/app/app.jar"]
+# Runtime: uses the pre-built archive
+ENTRYPOINT ["java", "-XX:SharedArchiveFile=application.jsa", "-jar", "application.jar"]
 ```
+
+**AOT Cache (Java 24+) -- replaces AppCDS:**
+
+```dockerfile
+RUN java -XX:AOTCacheOutput=app.aot \
+    -Dspring.context.exit=onRefresh \
+    -jar application.jar
+
+ENTRYPOINT ["java", "-XX:AOTCache=app.aot", "-jar", "application.jar"]
+```
+
+**Typical startup improvement:**
+
+| Configuration | Startup Time (Spring Boot REST app) |
+|--------------|-------------------------------------|
+| No CDS | ~4.5s |
+| Default CDS only | ~3.8s |
+| AppCDS (training run) | ~2.8s |
+| AOT Cache (Java 24+) | ~2.0s |
+| GraalVM Native Image | ~0.05s |
 
 ### Spring Boot Specific
 
