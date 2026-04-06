@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.md
+*.png
+LICENSE
+.idea/
+*.iml
+target/
+build/
+.gradle/
+docs/
+.ai-jail
