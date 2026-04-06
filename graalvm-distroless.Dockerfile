@@ -1,5 +1,5 @@
 # Stage 1: Build the native image with GraalVM
-FROM ghcr.io/graalvm/native-image-community:21-muslib-ol9 AS builder
+FROM ghcr.io/graalvm/native-image-community:25-ol9 AS builder
 
 WORKDIR /build
 
@@ -15,7 +15,7 @@ COPY sample-app/src ./src
 RUN mvn -Pnative clean package -DskipTests -B native:compile
 
 # Stage 2: Create the final image
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/cc-debian13:nonroot
 
 WORKDIR /app
 

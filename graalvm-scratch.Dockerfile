@@ -1,5 +1,5 @@
-# Stage 1: Build the native image with GraalVM (static binary with musl)
-FROM ghcr.io/graalvm/native-image-community:21-muslib-ol9 AS builder
+# Stage 1: Build a native image with GraalVM
+FROM ghcr.io/graalvm/native-image-community:25-ol9 AS builder
 
 WORKDIR /build
 
@@ -10,18 +10,22 @@ RUN microdnf install -y maven && microdnf clean all
 COPY sample-app/pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy source code and build a fully static native image
+# Copy source code and build the native image
 COPY sample-app/src ./src
-RUN mvn -Pnative clean package -DskipTests -B native:compile \
-    -Dnative.build.args="--static --libc=musl"
+RUN mvn -Pnative clean package -DskipTests -B native:compile
+RUN mkdir -p /scratch-tmp
 
 # Stage 2: Create the final image from scratch (empty image)
 FROM scratch
 
 WORKDIR /app
 
-# Copy the static native binary
+# Copy the native binary and its minimal runtime dependencies
 COPY --from=builder /build/target/demo /app/application
+COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+COPY --from=builder /lib64/libc.so.6 /lib64/libc.so.6
+COPY --from=builder /lib64/libz.so.1 /lib64/libz.so.1
+COPY --from=builder --chown=1001:1001 /scratch-tmp /tmp
 
 # Copy CA certificates for HTTPS support
 COPY --from=builder /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /etc/ssl/certs/ca-certificates.crt

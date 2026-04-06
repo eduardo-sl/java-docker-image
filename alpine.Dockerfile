@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM docker.io/maven:3.9-eclipse-temurin-21-alpine AS builder
+FROM docker.io/maven:3.9-eclipse-temurin-25-alpine AS builder
 
 WORKDIR /build
 
@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     mv target/*.jar app.jar
 
 # Stage 2: Create the final image
-FROM docker.io/eclipse-temurin:21-jre-alpine
+FROM docker.io/eclipse-temurin:25-jre-alpine
 
 # Install only essential runtime dependencies
 RUN apk add --no-cache \

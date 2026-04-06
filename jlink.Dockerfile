@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM docker.io/maven:3.9-eclipse-temurin-21-alpine AS builder
+FROM docker.io/maven:3.9-eclipse-temurin-25-alpine AS builder
 
 WORKDIR /build
 
@@ -15,21 +15,22 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     mv target/*.jar app.jar
 
 # Stage 2: Create a custom JRE with jlink
-FROM docker.io/eclipse-temurin:21-jdk-alpine AS jlink-builder
+FROM docker.io/eclipse-temurin:25-jdk-alpine AS jlink-builder
 
 WORKDIR /jlink
 
 # Copy the JAR to analyze module dependencies
 COPY --from=builder /build/app.jar app.jar
 
-# Analyze dependencies and create a minimal custom JRE
-# jdeps identifies required modules; jlink strips everything else
+# Analyze dependencies and create a custom JRE.
+# For Spring Boot fat jars, jdeps under-reports modules loaded indirectly by Tomcat/Spring.
+# Use java.se as the stable base and keep only the extra JDK modules we need.
 RUN jdeps --ignore-missing-deps \
         --print-module-deps \
-        --multi-release 21 \
+        --multi-release 25 \
         app.jar > /tmp/modules.txt && \
     jlink \
-        --add-modules $(cat /tmp/modules.txt),jdk.crypto.ec,jdk.management \
+        --add-modules java.se,$(cat /tmp/modules.txt),jdk.crypto.ec,jdk.management \
         --strip-debug \
         --no-man-pages \
         --no-header-files \
