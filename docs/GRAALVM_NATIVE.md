@@ -15,10 +15,10 @@ GraalVM Native Image compiles Java applications ahead-of-time (AOT) into standal
 
 | Dockerfile | Base Image | Size | Use Case |
 |------------|-----------|------|----------|
-| `graalvm-distroless` | Distroless static | ~25-40MB | Production (recommended) |
-| `graalvm-scratch` | scratch | ~30-50MB | Minimal, no OS |
+| `graalvm-distroless` | Distroless `cc-debian13` | ~25-40MB | Production (recommended) |
+| `graalvm-scratch` | `scratch` + copied glibc runtime | ~30-50MB | Minimal runtime, no package manager |
 | `graalvm-alpine` | Alpine | ~40-60MB | Debug-friendly |
-| `graalvm-upx` | scratch + UPX | ~15-25MB | Smallest possible |
+| `graalvm-upx` | Distroless `cc-debian13` + UPX | ~15-25MB | Smallest practical image |
 
 ## Spring Boot 3.x Native Support
 
@@ -48,6 +48,8 @@ Build with: `mvn -Pnative clean package -DskipTests native:compile`
 - **Static binary** (`--static --libc=musl`): No runtime dependencies. Use with scratch or Distroless static.
 
 Static binaries are larger but completely self-contained.
+
+In this repository, the native images are currently built as dynamic glibc binaries. The `scratch` variant works by copying the minimal runtime linker and shared libraries from the builder stage. This choice is deliberate because the tested GraalVM Community `muslib` builders for Java 25 were not stable in this environment.
 
 ## UPX Compression
 
@@ -81,6 +83,12 @@ Trade-off: Slightly slower startup (decompression overhead of ~50-100ms).
 - Application relies heavily on reflection
 - Build time is critical (CI/CD pipelines)
 - Large monolithic applications
+
+## Repository-Specific Guidance
+
+- Prefer `graalvm-distroless.Dockerfile` for production: smallest operational risk with a minimal runtime.
+- Prefer `graalvm-scratch.Dockerfile` when you want a tiny image and accept a more manual runtime layout.
+- Prefer `graalvm-upx.Dockerfile` only when the extra compression step is worth the slower build and potential operational complexity.
 
 ## References
 

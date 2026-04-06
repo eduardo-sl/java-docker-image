@@ -15,10 +15,10 @@ Never run containers as root in production.
 | Base Image | Shell | Package Manager | Attack Surface |
 |------------|-------|-----------------|----------------|
 | `scratch` | No | No | Minimal |
-| `gcr.io/distroless/static` | No | No | Minimal |
-| `gcr.io/distroless/java21` | No | No | Low |
+| `gcr.io/distroless/cc-debian13` | No | No | Minimal |
+| `gcr.io/distroless/java25-debian13` | No | No | Low |
 | `alpine` | Yes | Yes (apk) | Low |
-| `eclipse-temurin:21-jre` | Yes | Yes (apt) | Medium |
+| `eclipse-temurin:25-jre-alpine` | Yes | Yes (apk) | Medium |
 
 ## Image Scanning
 
@@ -37,7 +37,7 @@ grype myapp-distroless
 
 ## Build Reproducibility
 
-- Pin base image versions (e.g., `eclipse-temurin:21.0.6_7-jre-alpine` instead of `21-jre-alpine`)
+- Pin exact base image tags or digests in CI/CD when reproducibility matters (for example, prefer a fully qualified Temurin tag or image digest instead of a floating major tag)
 - Pin Maven/Gradle plugin versions
 - Use `--no-cache` for CI builds to avoid stale layers
 
@@ -50,6 +50,7 @@ grype myapp-distroless
 ## Network Security
 
 - Expose only required ports
+- Prefer images without a shell or package manager for production (`distroless` or `scratch` variants)
 - Use read-only file systems when possible:
   ```bash
   docker run --read-only --tmpdir /tmp myapp-distroless
