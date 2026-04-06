@@ -138,10 +138,11 @@ Use Docker Buildx to build images for multiple architectures:
 All JVM-based Dockerfiles include optimized flags:
 
 ```
--XX:+UseContainerSupport          # Detect container memory/CPU limits
--XX:MaxRAMPercentage=75.0         # Use 75% of container RAM for heap
--XX:+UseG1GC                      # G1 Garbage Collector (balanced throughput/latency)
+-XX:+UseContainerSupport           # Detect container memory/CPU limits
+-XX:MaxRAMPercentage=75.0          # Use 75% of container RAM for heap
+-XX:+UseG1GC                       # G1 Garbage Collector (balanced throughput/latency)
 -XX:+UseStringDeduplication        # Deduplicate strings in the heap
+-XX:+ExitOnOutOfMemoryError        # Exit immediately on OOM (lets orchestrator restart)
 -Djava.security.egd=file:/dev/./urandom  # Non-blocking entropy source
 ```
 
