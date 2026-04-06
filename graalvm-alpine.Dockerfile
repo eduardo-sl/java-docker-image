@@ -1,5 +1,5 @@
 # Stage 1: Build the native image with GraalVM
-FROM ghcr.io/graalvm/native-image-community:21-ol9 AS builder
+FROM ghcr.io/graalvm/native-image-community:25-ol9 AS builder
 
 WORKDIR /build
 
